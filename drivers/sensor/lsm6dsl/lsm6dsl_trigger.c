@@ -151,16 +151,28 @@ int lsm6dsl_init_interrupt(const struct device *dev)
 		return -EIO;
 	}
 
+	if (drv_data->hw_tf->update_reg(dev,
+			       LSM6DSL_REG_INT2_CTRL,
+			       LSM6DSL_MASK_INT2_CTRL_DRDY_XL |
+			       LSM6DSL_MASK_INT2_CTRL_DRDY_G,
+			       BIT(LSM6DSL_SHIFT_INT2_CTRL_DRDY_XL) |
+			       BIT(LSM6DSL_SHIFT_INT2_CTRL_DRDY_G)) < 0) {
+		LOG_ERR("Could not enable data-ready interrupt.");
+		return -EIO;
+	}
+
 	drv_data->dev = dev;
 
 #if defined(CONFIG_LSM6DSL_TRIGGER_OWN_THREAD)
 	k_sem_init(&drv_data->gpio_sem, 0, K_SEM_MAX_LIMIT);
 
-	k_thread_create(&drv_data->thread, drv_data->thread_stack,
+	k_tid_t tId = 
+		k_thread_create(&drv_data->thread, drv_data->thread_stack,
 			CONFIG_LSM6DSL_THREAD_STACK_SIZE,
 			(k_thread_entry_t)lsm6dsl_thread, drv_data,
 			NULL, NULL, K_PRIO_COOP(CONFIG_LSM6DSL_THREAD_PRIORITY),
 			0, K_NO_WAIT);
+	k_thread_name_set(tId, "lsm6dsl");
 #elif defined(CONFIG_LSM6DSL_TRIGGER_GLOBAL_THREAD)
 	drv_data->work.handler = lsm6dsl_work_cb;
 #endif
